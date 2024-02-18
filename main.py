@@ -3,8 +3,11 @@ import os
 import serial
 import csv
 from datetime import datetime
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLabel
 from PyQt5.QtCore import QTimer
+from PyQt5.QtGui import QColor, QPalette
+import pandas as pd
+from model import load_data, main, predict  # Import main function from model.py
 
 class App(QWidget):
     def __init__(self):
@@ -43,6 +46,22 @@ class App(QWidget):
         layout.addWidget(self.recordCorrectButton)
         layout.addWidget(self.recordIncorrectButton)
         layout.addWidget(self.stopButton)
+        
+        # Train Model Button
+        self.trainModelButton = QPushButton('Train Model', self)
+        self.trainModelButton.clicked.connect(self.train_model)
+        layout.addWidget(self.trainModelButton)
+
+         # Predict Button
+        self.predictButton = QPushButton('Predict Movement', self)
+        self.predictButton.clicked.connect(self.start_prediction_recording)
+        layout.addWidget(self.predictButton)
+
+        '''# Add a label for prediction result
+        self.predictionResult = QLabel(self)
+        self.predictionResult.setText("Prediction Result")
+        self.predictionResult.setAutoFillBackground(True)
+        layout.addWidget(self.predictionResult)'''
 
         # Set the layout
         self.setLayout(layout)
@@ -91,9 +110,111 @@ class App(QWidget):
             except UnicodeDecodeError:
                 pass  # Skip lines that cannot be decoded
 
+    def train_model(self):
+        # Call the main function from model.py to train the model
+        main()
+
     def closeEvent(self, event):
         self.serialPort.close()
         event.accept()
+
+    def start_prediction_recording(self):
+        print("Starting prediction recording...")
+        if not self.isRecording:
+            self.isRecording = True
+            self.currentFile = open('prediction_data.csv', mode='w', newline='')
+            self.csvWriter = csv.writer(self.currentFile)
+            self.csvWriter.writerow(["X Acceleration", "Y Acceleration", "Z Acceleration"])
+
+            # Connect the timeout signal to the stop recording method
+            self.autoStopTimer.timeout.connect(self.stop_recording_prediction)
+            self.autoStopTimer.start(3000)  # Record for 3 seconds
+
+    def stop_recording_prediction(self):
+        print("Stopping prediction recording...")
+        if self.isRecording:
+            self.isRecording = False
+            self.csvWriter = None
+            self.currentFile.close()
+            self.currentFile = None
+            self.analyze_prediction_data()
+
+    def analyze_prediction_data(self):
+        filename = 'prediction_data.csv'
+        #pause for a few seconds to ensure the file is saved
+
+        print("Analyzing prediction data...")
+        # Load the saved data
+        predict_df = pd.read_csv(filename)
+
+        # Format the data as needed for prediction
+        formatted_data = predict_df.to_numpy().flatten()
+
+        # Predict using the formatted data
+        prediction = predict([formatted_data])
+
+        # Set prediction result
+        self.set_prediction_result(prediction == 1)
+
+    def set_prediction_result(self, is_correct):
+        # Update UI based on prediction
+        if is_correct:
+            self.predictionResult.setText("Movement is correct")
+            self.setStyleSheet("background-color: green;")
+        else:
+            self.predictionResult.setText("Movement is incorrect")
+            self.setStyleSheet("background-color: red;")
+        QTimer.singleShot(1000, lambda: self.setStyleSheet(""))
+
+        
+        
+
+    '''def predict_movement(self):
+        # Start collecting data for prediction
+        self.currentData = []
+        self.collectingData = True
+        QTimer.singleShot(3000, self.stop_collecting_data)  # Adjust time as needed
+        print("Started collecting data for prediction...")
+
+    def stop_collecting_data(self):
+        # Stop data collection and make a prediction
+        self.collectingData = False
+        print(f"Collected Data: {self.currentData}")
+        formatted_data = self.format_data_for_prediction(self.currentData)
+        print(f"Predicting movement for data: {formatted_data}")
+        prediction = predict(formatted_data)
+
+        # Set prediction result
+        if prediction == 1:
+            self.set_prediction_result(True)
+        else:
+            self.set_prediction_result(False)
+
+    def format_data_for_prediction(self, data):
+        # Assuming each prediction is based on a single set of [X, Y, Z] readings
+        # Take the most recent [X, Y, Z] reading for prediction
+        if len(data) >= 3:
+            latest_reading = data[-3:]  # Get the last 3 values (X, Y, Z)
+        else:
+            # If not enough data was captured, use default values (e.g., [0, 0, 0])
+            latest_reading = [0, 0, 0]
+
+        return latest_reading  # Return the latest reading as a list
+    
+    def set_prediction_result(self, is_correct):
+        # Update UI based on prediction
+        if is_correct:
+            # Flash green for correct
+            # Example: Change background color to green
+            self.setStyleSheet("background-color: green;")
+        else:
+            # Flash red for incorrect
+            # Example: Change background color to red
+            self.setStyleSheet("background-color: red;")
+
+        # Reset background color after a short delay
+        QTimer.singleShot(1000, lambda: self.setStyleSheet(""))'''
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

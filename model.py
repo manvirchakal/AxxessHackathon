@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 import os
 import glob
+import joblib
 
 def load_data(folder):
     # Read all CSV files in the folder and concatenate into a single DataFrame
@@ -47,6 +48,22 @@ def main():
 
     # Print classification report
     print(classification_report(y_test, predictions))
+
+    # Save the trained model
+    joblib.dump(clf, 'trained_model.pkl')
+
+def predict(movement):
+    # Load the trained model
+    model = joblib.load('trained_model.pkl')
+
+    # Convert movement to DataFrame with the correct column names
+    column_names = ['X Acceleration', 'Y Acceleration', 'Z Acceleration']
+    movement_df = pd.DataFrame(movement, columns=column_names)
+
+    # Predict
+    prediction = model.predict(movement_df)
+    return prediction[0]  # Return the prediction (1 for correct, 0 for incorrect)
+
 
 if __name__ == "__main__":
     main()

@@ -2,3 +2,9 @@
 /bin
 /lib
 pyvenv.cfg
+/data_correct
+/data_incorrect
+trained_model.pkl
+prediction_data.csv
+.DS_Store
+__pycache__
